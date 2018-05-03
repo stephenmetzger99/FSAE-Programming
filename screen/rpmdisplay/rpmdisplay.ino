@@ -46,10 +46,10 @@ void loop() {
   } else {
     nrpm = 0;
   }
-  if (int(nrpm) - int(rpm) > 45 || int(rpm) - int(nrpm) > 45 ) {
+  if (int(nrpm) - int(rpm) > 25 || int(rpm) - int(nrpm) > 25 ) {
     writeRPMs(nrpm);
-    rpm = nrpm;
-  }
+  }   
+  rpm = nrpm;
   delay(50);
 }
 
