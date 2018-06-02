@@ -13,12 +13,15 @@
 #define shiftup 
 #define shiftdown 
 
+const int SHIFT_UP_BUTTON_PIN = 7;   //subject to change
+const int SHIFT_DOWN_BUTTON_PIN = 6; //subject to change
+const int SHIFT_UP_OUTPUT_PIN = 5;   //subject to change
+const int SHIFT_DOWN_OUTPUT_PIN = 4; //subject to change
 const int PEAKPOWER_RPM = 13500;
 const int MAX_RPM = 15000;
 const int IDLE_RPM = 1300;
 int serialstate = 0;
 int button = 0;
-
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(16, PIN, NEO_RGB + NEO_KHZ800);
 
 // Use hardware SPI (on Uno, #13, #12, #11) and the above for CS/DC
@@ -28,10 +31,18 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
 
 uint16_t rpm = 0;
 uint16_t nrpm = 0;
+uint16_t prev_gear = 0;
+uint16_t current_gear = 1;
+uint16_t pmph = 0;
+uint16_t mph = 0;
+bool neutral = true;
 
 void setup() {
   Serial.begin(9600);
-  strip.begin();
+  pinMode(SHIFT_UP_BUTTON_PIN, INPUT);
+  pinMode(SHIFT_DOWN_BUTTON_PIN, INPUT);
+  pinMode(SHIFT_UP_OUTPUT_PIN, OUTPUT);
+  pinMode(SHIFT_DOWN_OUTPUT_PIN, OUTPUT);
   strip.setBrightness(32);
   Serial.println("FSAE display");
   tft.begin();
@@ -42,48 +53,45 @@ void setup() {
   tft.fillScreen(BLUE);
   tft.setRotation(ROTATION);
   tft.setFont(&FreeSans9pt7b);
-  tft.setCursor(tft.width() / 5, tft.height() / 3);
-  tft.setTextColor(ILI9341_WHITE);
-  tft.setTextSize(2);
+  //rpm
   writeRPMs(rpm);
   tft.setCursor(230, 120);
   tft.setTextSize(1);
   tft.setTextColor(ILI9341_YELLOW);
   tft.print("RPM");
-
-  int gear = 4;
-  int mph = 35;
   //gear
+  writeGear(current_gear);
   tft.setCursor(60, 230);
   tft.setTextColor(ILI9341_YELLOW);
   tft.setTextSize(1);
   tft.print("GEAR");
-  tft.setCursor(65, 200);
-  tft.setTextColor(ILI9341_ORANGE);
-  tft.setTextSize(3);
-  tft.print(gear);
-
   //mph
+  writeMPH(mph);
   tft.setCursor(230, 230);
   tft.setTextColor(ILI9341_YELLOW);
   tft.setTextSize(1);
   tft.print("MPH");
-  tft.setCursor(220, 200);
-  tft.setTextColor(ILI9341_ORANGE);
-  tft.setTextSize(3);
-  tft.print(mph);
+
 
   //placeholder
   tft.setCursor(30, tft.height() / 3);
   tft.setTextColor(ILI9341_RED);
   tft.setTextSize(1);
   tft.print("Speed FSAE");
+  neutral = false;
 }
 
 
 
 void loop() {
-
+  int shift_up, shift_down;
+  shift_up = digitalRead(SHIFT_UP_BUTTON_PIN);
+  shift_down = digitalRead(SHIFT_DOWN_BUTTON_PIN);
+  if (shift_up == HIGH && shift_down == LOW) {
+    digitalWrite(SHIFT_UP_OUTPUT_PIN, HIGH);
+  } else if (shift_down == HIGH && shift_up==LOW) {
+    digitalWrite(SHIFT_DOWN_OUTPUT_PIN, HIGH);
+  }
   //fake the rpms for now
   if (rpm < 15000) {
     if (nrpm > 25) {
@@ -93,7 +101,13 @@ void loop() {
     }
   } else {
     nrpm = 0;
+    if (random(100) < 20) {
+      current_gear -= 1;
+    } else {
+      current_gear += 1;
+    }
   }
+  mph = rpm / 1500 * current_gear;
   if (int(nrpm) - int(rpm) > 25 || int(rpm) - int(nrpm) > 25 ) {
     writeRPMs(nrpm);
   }
@@ -101,7 +115,14 @@ void loop() {
   delay(50);
   rpmGauge();
 
-
+  if (current_gear != prev_gear) {
+    writeGear(current_gear);
+    prev_gear = current_gear;
+  }
+  if (mph != pmph) {  
+    writeMPH(mph);
+    pmph = mph;
+  }
 }
 
 unsigned long writeRPMs(uint16_t rpm) {
@@ -116,8 +137,35 @@ unsigned long writeRPMs(uint16_t rpm) {
   return micros() - start;
 }
 
+unsigned long writeGear(uint16_t gear) {
+  unsigned long start = micros();
+  int cursorX = 65;
+  int cursorY = 200;
+  tft.setCursor(cursorX, cursorY);
+  tft.fillRect(cursorX,cursorY-37,130,50,BLUE);
+  tft.setTextColor(ILI9341_ORANGE);
+  tft.setTextSize(3);
+  if (neutral) {  
+    tft.print('N');
+  } else {
+    tft.print(gear);
+  }
+  return micros() - start;
+}
+
+unsigned long writeMPH(uint16_t mph) {
+  unsigned long start = micros();
+  int cursorX = 220;
+  int cursorY = 200;
+  tft.setCursor(cursorX, cursorY);
+  tft.fillRect(cursorX,cursorY-37,130,50,BLUE);
+  tft.setTextColor(ILI9341_ORANGE);
+  tft.setTextSize(3);
+  tft.print(mph);
+  return micros() - start;
+}
 void changePixelState(int index, bool state) {
-  if (state == true) {
+  if (state) {
     switch (index) {
       case 0:
         strip.setPixelColor(0, 255, 0, 0);
@@ -170,58 +218,8 @@ void changePixelState(int index, bool state) {
         Serial.print("invalid");
     }
 
-  } else if (state == false) {
-    switch (index) {
-      case 0:
-        strip.setPixelColor(0, 0, 0, 0);
-        break;
-      case 1:
-        strip.setPixelColor(1, 0, 0, 0);
-        break;
-      case 2:
-        strip.setPixelColor(2, 0, 0, 0);
-        break;
-      case 3:
-        strip.setPixelColor(3, 0, 0, 0);
-        break;
-      case 4:
-        strip.setPixelColor(4, 0, 0, 0);
-        break;
-      case 5:
-        strip.setPixelColor(5, 0, 0, 0);
-        break;
-      case 6:
-        strip.setPixelColor(6, 0, 0, 0);
-        break;
-      case 7:
-        strip.setPixelColor(7, 0, 0, 0);
-        break;
-      case 8:
-        strip.setPixelColor(8, 0, 0, 0);
-        break;
-      case 9:
-        strip.setPixelColor(9, 0, 0, 0);
-      case 10:
-        strip.setPixelColor(10, 0, 0, 0);
-        break;
-      case 11:
-        strip.setPixelColor(11, 0, 0, 0);
-        break;
-      case 12:
-        strip.setPixelColor(12, 0, 0, 0);
-        break;
-      case 13:
-        strip.setPixelColor(13, 0, 0, 0);
-        break;
-      case 14:
-        strip.setPixelColor(14, 0, 0, 0);
-        break;
-      case 15:
-        strip.setPixelColor(15, 0, 0, 0);
-        break;
-      default:
-        Serial.print("invalid");
-    }
+  } else {
+    strip.setPixelColor(index,0,0,0);
   }
   strip.show();
 }
@@ -247,6 +245,7 @@ void rpmGauge() {
   if (rpm > 12000) changePixelState(14, true); else changePixelState(14, false);
   if (rpm > 14000) changePixelState(15, true); else changePixelState(15, false);
 }
+
 
 
 
