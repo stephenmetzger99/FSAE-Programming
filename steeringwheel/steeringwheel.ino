@@ -81,17 +81,39 @@ void setup() {
   neutral = false;
 }
 
-
+bool shifting_up = false;
+bool shifting_down = false;
 
 void loop() {
   int shift_up, shift_down;
   shift_up = digitalRead(SHIFT_UP_BUTTON_PIN);
   shift_down = digitalRead(SHIFT_DOWN_BUTTON_PIN);
-  if (shift_up == HIGH && shift_down == LOW) {
-    digitalWrite(SHIFT_UP_OUTPUT_PIN, HIGH);
-  } else if (shift_down == HIGH && shift_up==LOW) {
-    digitalWrite(SHIFT_DOWN_OUTPUT_PIN, HIGH);
+  if (!shifting_up && !shifting_down) {  
+    if (shift_up == HIGH && shift_down == LOW) {
+      shifting_up = true;
+    } else if (shift_down == HIGH && shift_up==LOW) {
+      shifting_down = true;
+    }
+  } else {
+    if (shifting_up) {
+      if (shift_up == LOW) {
+        digitalWrite(SHIFT_UP_OUTPUT_PIN, HIGH);
+        delay(10);
+        digitalWrite(SHIFT_UP_OUTPUT_PIN,LOW);
+        Serial.println("shifting up");
+        shifting_up = false;
+      }
+    } else if (shifting_down) {
+      if (shift_down == LOW) {
+        digitalWrite(SHIFT_DOWN_OUTPUT_PIN,HIGH);
+        delay(10);
+        digitalWrite(SHIFT_DOWN_OUTPUT_PIN,LOW);
+        Serial.println("shifting down");
+        shifting_down = false;
+      }
+    }
   }
+  //Serial.println("loop");
   //fake the rpms for now
   if (rpm < 15000) {
     if (nrpm > 25) {
