@@ -9,7 +9,9 @@
 #define TFT_CS 10
 #define ROTATION 1
 #define BLUE 0x0005
-#define PIN 4
+#define PIN 3
+#define shiftup 
+#define shiftdown 
 
 const int SHIFT_UP_BUTTON_PIN = 7;   //subject to change
 const int SHIFT_DOWN_BUTTON_PIN = 6; //subject to change
@@ -41,6 +43,7 @@ void setup() {
   pinMode(SHIFT_DOWN_BUTTON_PIN, INPUT);
   pinMode(SHIFT_UP_OUTPUT_PIN, OUTPUT);
   pinMode(SHIFT_DOWN_OUTPUT_PIN, OUTPUT);
+  pinMode(PIN,OUTPUT);
   strip.setBrightness(32);
   Serial.println("FSAE display");
   tft.begin();
@@ -263,7 +266,7 @@ void rpmGauge() {
   if (rpm > 9000) changePixelState(12, true); else changePixelState(12, false);
   if (rpm > 10000) changePixelState(13, true); else changePixelState(13, false);
   if (rpm > 12000) changePixelState(14, true); else changePixelState(14, false);
-  if (rpm > 14000) changePixelState(15, true); else changePixelState(15, false);
+  if (rpm > 14000) changePixelState(15, true); else changePixelState(15, false);  
 }
 
 
