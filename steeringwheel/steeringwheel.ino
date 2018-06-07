@@ -10,8 +10,6 @@
 #define ROTATION 1
 #define BLUE 0x0005
 #define PIN 4
-#define shiftup 
-#define shiftdown 
 
 const int SHIFT_UP_BUTTON_PIN = 7;   //subject to change
 const int SHIFT_DOWN_BUTTON_PIN = 6; //subject to change
