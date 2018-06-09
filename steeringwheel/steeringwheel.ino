@@ -10,8 +10,8 @@
 #define ROTATION 1
 #define BLUE 0x0005
 #define PIN 3
-#define shiftup 
-#define shiftdown 
+#define shiftup
+#define shiftdown
 
 const int SHIFT_UP_BUTTON_PIN = 7;   //subject to change
 const int SHIFT_DOWN_BUTTON_PIN = 6; //subject to change
@@ -20,6 +20,7 @@ const int SHIFT_DOWN_OUTPUT_PIN = 4; //subject to change
 const int PEAKPOWER_RPM = 13500;
 const int MAX_RPM = 15000;
 const int IDLE_RPM = 1300;
+
 int serialstate = 0;
 int button = 0;
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(16, PIN, NEO_RGB + NEO_KHZ800);
@@ -30,12 +31,13 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
 //Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_MOSI, TFT_CLK, TFT_RST, TFT_MISO);
 
 uint16_t rpm = 0;
-uint16_t nrpm = 0;
+uint16_t newRPM = 0;
 uint16_t prev_gear = 0;
 uint16_t current_gear = 1;
-uint16_t pmph = 0;
+uint16_t prevMPH = 0;
 uint16_t mph = 0;
 bool neutral = true;
+int byteRead;
 
 void setup() {
   Serial.begin(9600);
@@ -43,7 +45,7 @@ void setup() {
   pinMode(SHIFT_DOWN_BUTTON_PIN, INPUT);
   pinMode(SHIFT_UP_OUTPUT_PIN, OUTPUT);
   pinMode(SHIFT_DOWN_OUTPUT_PIN, OUTPUT);
-  pinMode(PIN,OUTPUT);
+  pinMode(PIN, OUTPUT);
   strip.setBrightness(32);
   Serial.println("FSAE display");
   tft.begin();
@@ -86,44 +88,23 @@ bool shifting_up = false;
 bool shifting_down = false;
 
 void loop() {
-  int shift_up, shift_down;
-  shift_up = digitalRead(SHIFT_UP_BUTTON_PIN);
-  shift_down = digitalRead(SHIFT_DOWN_BUTTON_PIN);
-  if (!shifting_up && !shifting_down) {  
-    if (shift_up == HIGH && shift_down == LOW) {
-      shifting_up = true;
-    } else if (shift_down == HIGH && shift_up==LOW) {
-      shifting_down = true;
-    }
-  } else {
-    if (shifting_up) {
-      if (shift_up == LOW) {
-        digitalWrite(SHIFT_UP_OUTPUT_PIN, HIGH);
-        delay(10);
-        digitalWrite(SHIFT_UP_OUTPUT_PIN,LOW);
-        Serial.println("shifting up");
-        shifting_up = false;
-      }
-    } else if (shifting_down) {
-      if (shift_down == LOW) {
-        digitalWrite(SHIFT_DOWN_OUTPUT_PIN,HIGH);
-        delay(10);
-        digitalWrite(SHIFT_DOWN_OUTPUT_PIN,LOW);
-        Serial.println("shifting down");
-        shifting_down = false;
-      }
-    }
+
+
+  while (Serial.available()) {
+    /* read the most recent byte */
+    byteRead = Serial.read();     //now byteRead will have latest sensor
+    // data sent from the other arduino
   }
-  //Serial.println("loop");
+
   //fake the rpms for now
   if (rpm < 15000) {
-    if (nrpm > 25) {
-      nrpm += random(100) - 25;
+    if (newRPM > 25) {
+      newRPM += random(100) - 25;
     } else {
-      nrpm += random(75);
+      newRPM += random(75);
     }
   } else {
-    nrpm = 0;
+    newRPM = 0;
     if (random(100) < 20) {
       current_gear -= 1;
     } else {
@@ -131,20 +112,21 @@ void loop() {
     }
   }
   mph = rpm / 1500 * current_gear;
-  if (int(nrpm) - int(rpm) > 25 || int(rpm) - int(nrpm) > 25 ) {
-    writeRPMs(nrpm);
+  if (int(newRPM) - int(rpm) > 25 || int(rpm) - int(newRPM) > 25 ) {
+    writeRPMs(newRPM);
   }
-  rpm = nrpm;
+  rpm = newRPM;
   delay(50);
-  rpmGauge();
+  rpmGauge(); //lights up the steering wheel lights
 
   if (current_gear != prev_gear) {
     writeGear(current_gear);
     prev_gear = current_gear;
   }
-  if (mph != pmph) {  
+
+  if (mph != prevMPH) {
     writeMPH(mph);
-    pmph = mph;
+    prevMPH = mph;
   }
 }
 
@@ -165,10 +147,10 @@ unsigned long writeGear(uint16_t gear) {
   int cursorX = 65;
   int cursorY = 200;
   tft.setCursor(cursorX, cursorY);
-  tft.fillRect(cursorX,cursorY-37,130,50,BLUE);
+  tft.fillRect(cursorX, cursorY - 37, 130, 50, BLUE);
   tft.setTextColor(ILI9341_ORANGE);
   tft.setTextSize(3);
-  if (neutral) {  
+  if (neutral) {
     tft.print('N');
   } else {
     tft.print(gear);
@@ -181,7 +163,7 @@ unsigned long writeMPH(uint16_t mph) {
   int cursorX = 220;
   int cursorY = 200;
   tft.setCursor(cursorX, cursorY);
-  tft.fillRect(cursorX,cursorY-37,130,50,BLUE);
+  tft.fillRect(cursorX, cursorY - 37, 130, 50, BLUE);
   tft.setTextColor(ILI9341_ORANGE);
   tft.setTextSize(3);
   tft.print(mph);
@@ -242,7 +224,7 @@ void changePixelState(int index, bool state) {
     }
 
   } else {
-    strip.setPixelColor(index,0,0,0);
+    strip.setPixelColor(index, 0, 0, 0);
   }
   strip.show();
 }
@@ -266,9 +248,39 @@ void rpmGauge() {
   if (rpm > 9000) changePixelState(12, true); else changePixelState(12, false);
   if (rpm > 10000) changePixelState(13, true); else changePixelState(13, false);
   if (rpm > 12000) changePixelState(14, true); else changePixelState(14, false);
-  if (rpm > 14000) changePixelState(15, true); else changePixelState(15, false);  
+  if (rpm > 14000) changePixelState(15, true); else changePixelState(15, false);
 }
 
+void shift() {
+  int shift_up, shift_down;
+  shift_up = digitalRead(SHIFT_UP_BUTTON_PIN);
+  shift_down = digitalRead(SHIFT_DOWN_BUTTON_PIN);
+  if (!shifting_up && !shifting_down) {
+    if (shift_up == HIGH && shift_down == LOW) {
+      shifting_up = true;
+    } else if (shift_down == HIGH && shift_up == LOW) {
+      shifting_down = true;
+    }
+  } else {
+    if (shifting_up) {
+      if (shift_up == LOW) {
+        digitalWrite(SHIFT_UP_OUTPUT_PIN, HIGH);
+        delay(10);
+        digitalWrite(SHIFT_UP_OUTPUT_PIN, LOW);
+        Serial.println("shifting up");
+        shifting_up = false;
+      }
+    } else if (shifting_down) {
+      if (shift_down == LOW) {
+        digitalWrite(SHIFT_DOWN_OUTPUT_PIN, HIGH);
+        delay(10);
+        digitalWrite(SHIFT_DOWN_OUTPUT_PIN, LOW);
+        Serial.println("shifting down");
+        shifting_down = false;
+      }
+    }
+  }
+}
 
 
 
