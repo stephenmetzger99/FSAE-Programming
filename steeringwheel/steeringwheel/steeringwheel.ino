@@ -1,3 +1,11 @@
+/* University of Louisville FSAE 
+ *  Electronics Subteam
+ *  Author: Stephen Metzger
+ *  Contributors: Nico Mitchell, Victor Papyshev
+ * 
+ *  Pupose: to control the steering wheel of the car. Has paddle shifters to shift gears up and down, a display screen to show current gear, RPMs and MPH, and an LED RGB strip to show the engine rpms 
+ * */
+ 
 #include "Adafruit_NeoPixel.h"
 #include "SPI.h"
 #include "Adafruit_GFX.h"
@@ -55,23 +63,26 @@ void setup() {
   tft.begin();
   randomSeed(analogRead(0));
   // read diagnostics (optional but can help debug problems)
-  uint8_t x = tft.readcommand8(ILI9341_RDMODE);
+  uint8_t x = tft.readcommand8(ILI9341_RDMODE); 
   Serial.print("Display Power Mode: 0x"); Serial.println(x, HEX);
   tft.fillScreen(BLUE);
   tft.setRotation(ROTATION);
   tft.setFont(&FreeSans9pt7b);
+  
   //rpm
   writeRPMs(rpm);
   tft.setCursor(230, 120);
   tft.setTextSize(1);
   tft.setTextColor(ILI9341_YELLOW);
   tft.print("RPM");
+  
   //gear
   writeGear(current_gear);
   tft.setCursor(60, 230);
   tft.setTextColor(ILI9341_YELLOW);
   tft.setTextSize(1);
   tft.print("GEAR");
+  
   //mph
   writeMPH(mph);
   tft.setCursor(230, 230);
@@ -79,87 +90,33 @@ void setup() {
   tft.setTextSize(1);
   tft.print("MPH");
 
-
+  
   //placeholder
   tft.setCursor(30, tft.height() / 3);
   tft.setTextColor(ILI9341_RED);
   tft.setTextSize(1);
-  tft.print("TESTING");
-  //neutral = true;
+  tft.print("FSAE");
+  
 }
 
-//bool shifting_up = false;
-//bool shifting_down = false;
 
 void loop() {
   int shift_up = digitalRead(SHIFT_UP_BUTTON_PIN);
   int shift_down = digitalRead(SHIFT_DOWN_BUTTON_PIN);
   int neutral_shift = 0;
-  //Serial.println(current_gear);
-  if (shift_up == HIGH && neutral) {
-    Serial.println("shifting 'up' from neutral to 1st");
-    neutral = false;
-    current_gear = 1;
-    neutral_shift = 1;
-    digitalWrite(SHIFT_DOWN_OUTPUT_PIN, HIGH);
-    delay(10);
-    digitalWrite(SHIFT_DOWN_OUTPUT_PIN, LOW);
-    delay(500);
-  }
-  if (shift_down == HIGH && neutral) {
-    neutral = false;
-    Serial.println("shifting down from neutral to 1st");
-    current_gear = 1;
-    neutral_shift = 1;
-    digitalWrite(SHIFT_DOWN_OUTPUT_PIN, HIGH);
-    delay(10);
-    digitalWrite(SHIFT_DOWN_OUTPUT_PIN, LOW);
-    delay(500);
-  }
-  if (shift_up == HIGH && !neutral && current_gear < 6 && neutral_shift == 0) {
-    Serial.println("normally shifting up");
-    current_gear += 1;
-    digitalWrite(SHIFT_UP_OUTPUT_PIN, HIGH);
-    delay(10);
-    digitalWrite(SHIFT_UP_OUTPUT_PIN, LOW);
-    delay(500);
-    }
-  if (shift_down == HIGH && !neutral && current_gear > 1 && neutral_shift == 0) {
-    Serial.println("normally shifting down");
-    current_gear -= 1;
-    digitalWrite(SHIFT_DOWN_OUTPUT_PIN, HIGH);
-    delay(10);
-    digitalWrite(SHIFT_DOWN_OUTPUT_PIN, LOW);
-    delay(500);
-    }
-
-  while (Serial.available()) {
-    /* read the most recent byte */
-    byteRead = Serial.read();     //now byteRead will have latest sensor
-    // data sent from the other arduino
-  }
-
-  //fake the rpms for now
-  if (rpm < 15000) {
-    if (newRPM > 25) {
-      newRPM += random(100) - 25;
-    } else {
-      newRPM += random(75);
-    }
-  } else {
-    newRPM = 0;
-    //if (random(100) < 20) {
-      //current_gear -= 1;
-    //} else {
-      //current_gear += 1;
-    //}
-  }
+  
+  Serial.println("gear %d",current_gear);
+  shiftGears();
+  
+  fakeRPMs(); //temporary
+  
   mph = rpm / 1500 * current_gear;
   if (int(newRPM) - int(rpm) > 25 || int(rpm) - int(newRPM) > 25 ) {
     writeRPMs(newRPM);
   }
   rpm = newRPM;
   delay(50);
+  
   rpmGauge(); //lights up the steering wheel lights
 
   if (current_gear != prev_gear) {
@@ -202,6 +159,7 @@ unsigned long writeGear(uint16_t gear) {
   return micros() - start;
 }
 
+//writes a fake MPH to test MPH screen output
 unsigned long writeMPH(uint16_t mph) {
   unsigned long start = micros();
   int cursorX = 220;
@@ -294,3 +252,54 @@ void rpmGauge() {
   if (rpm > 12000) changePixelState(14, true); else changePixelState(14, false);
   if (rpm > 14000) changePixelState(15, true); else changePixelState(15, false);
 }
+
+void shiftGears(){
+  if (shift_up == HIGH && neutral) {
+    Serial.println("shifting 'up' from neutral to 1st");
+    neutral = false;
+    current_gear = 1;
+    neutral_shift = 1;
+    digitalWrite(SHIFT_DOWN_OUTPUT_PIN, HIGH);
+    delay(10);
+    digitalWrite(SHIFT_DOWN_OUTPUT_PIN, LOW);
+    delay(500);
+  }
+  if (shift_down == HIGH && neutral) {
+    neutral = false;
+    Serial.println("shifting down from neutral to 1st");
+    current_gear = 1;
+    neutral_shift = 1;
+    digitalWrite(SHIFT_DOWN_OUTPUT_PIN, HIGH);
+    delay(10);
+    digitalWrite(SHIFT_DOWN_OUTPUT_PIN, LOW);
+    delay(500);
+  }
+  if (shift_up == HIGH && !neutral && current_gear < 6 && neutral_shift == 0) {
+    Serial.println("normally shifting up");
+    current_gear += 1;
+    digitalWrite(SHIFT_UP_OUTPUT_PIN, HIGH);
+    delay(10);
+    digitalWrite(SHIFT_UP_OUTPUT_PIN, LOW);
+    delay(500);
+    }
+  if (shift_down == HIGH && !neutral && current_gear > 1 && neutral_shift == 0) {
+    Serial.println("normally shifting down");
+    current_gear -= 1;
+    digitalWrite(SHIFT_DOWN_OUTPUT_PIN, HIGH);
+    delay(10);
+    digitalWrite(SHIFT_DOWN_OUTPUT_PIN, LOW);
+    delay(500);
+    }
+  }
+  
+ fakeRPMs(){if (rpm < 15000) {   
+  //for now, fake the rpms until the hall effect sesnor is set up
+    if (newRPM > 25) {
+      newRPM += random(100) - 25;
+    } else {
+      newRPM += random(75);
+    }
+  } else {
+    newRPM = 0;
+  }
+ }
